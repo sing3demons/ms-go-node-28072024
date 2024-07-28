@@ -1,0 +1,55 @@
+@url=http://localhost:8080/api/v1/auth
+
+GET http://localhost:8080/healthz HTTP/1.1
+
+###
+POST {{url}}/register HTTP/1.1
+content-type: application/json
+
+{
+    "email": "sing@dev.com",
+    "password": "123456"
+}
+
+###
+# @name auth
+POST {{url}}/login HTTP/1.1
+content-type: application/json
+
+{
+    "email": "sing@dev.com",
+    "password": "123456"
+}
+
+###
+@refreshToken = {{auth.response.body.$.data.refresh_token}}
+###
+@accessToken = {{auth.response.body.$.data.access_token}}
+
+###
+GET {{url}}/profile HTTP/1.1
+content-type: application/json
+Authorization : Bearer {{accessToken}}
+
+
+###
+# @name auth
+POST {{url}}/refresh HTTP/1.1
+content-type: application/json
+
+{
+    "refresh_token": "{{refreshToken}}"
+}
+
+###
+@refreshToken = {{auth.response.body.$.data.refresh_token}}
+###
+@accessToken = {{auth.response.body.$.data.access_token}}
+
+###
+POST {{url}}/verify HTTP/1.1
+content-type: application/json
+
+{
+    "access_token": "{{accessToken}}"
+}
