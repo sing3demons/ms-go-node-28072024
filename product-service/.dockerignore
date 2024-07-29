@@ -1,0 +1,8 @@
+.env.dev
+package-lock.json
+.git
+*Dockerfile*
+*docker-compose*
+node_modules
+yarn.lock
+product.http
