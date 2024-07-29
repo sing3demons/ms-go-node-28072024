@@ -10,7 +10,9 @@ import Server from './server/server'
 import { connect } from 'mongoose'
 
 const app = new Server(async () => {
-  connect(config.get('mongoUri'), {}).then(() => console.log('Connected!'))
+    connect(config.get('mongoUri'), {
+        dbName: 'product',
+    }).then(() => console.log('Connected!'))
 })
 const PORT = config.get('port')
 const myRoute: IRoute = new TypeRoute()

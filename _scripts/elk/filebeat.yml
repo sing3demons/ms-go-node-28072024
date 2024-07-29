@@ -16,7 +16,7 @@ processors:
         not:
           or:
             - equals:
-                container.name: "node-app"
+                container.name: "product-service"
             - equals:
                 container.name: "auth-service"
 

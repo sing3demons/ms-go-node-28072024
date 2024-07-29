@@ -38,3 +38,31 @@ services:
       - MONGO_URI=mongodb://mongo1:27017,mongo2:27018,mongo3:27019/?replicaSet=my-replica-set
     networks:
       - ms-service
+  product-service:
+    image: product-service
+    container_name: product-service
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    restart: always
+    cpuset: '1'
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+      resources:
+        limits:
+          cpus: '1' # Limit to 1 CPU core
+          memory: '512M' # Limit to 512MB of memory
+        reservations:
+          cpus: '0.25' # Reserve 25% of a single CPU core
+          memory: '256M'
+    environment:
+      - PORT=3000
+      - MONGO_URI=mongodb://mongo1:27017,mongo2:27018,mongo3:27019/?replicaSet=my-replica-set
+    ports:
+      - '3000:3000'
+    networks:
+      - ms-service
