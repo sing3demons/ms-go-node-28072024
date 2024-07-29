@@ -145,18 +145,8 @@ type Product struct {
 	Image       string  `json:"image"`
 }
 
-func main() {
-	start := time.Now()
-
+func create() chan Result[string] {
 	maxConcurrent := 100
-	// mu := sync.Mutex{}
-
-	urls := []string{}
-	for i := 0; i < 1000; i++ {
-		urls = append(urls, "http://localhost:3000/healthz")
-		urls = append(urls, "http://localhost:8080/healthz")
-	}
-
 	fakeProducts := []Product{}
 	for i := 1; i <= 5000; i++ {
 		fakeProduct := Product{
@@ -169,8 +159,8 @@ func main() {
 	}
 
 	var wg sync.WaitGroup
-	semaphore := make(chan struct{}, maxConcurrent) // Semaphore to limit concurrent requests
-	results := make(chan Result[string], len(urls)) // Create a buffered channel to hold the results
+	semaphore := make(chan struct{}, maxConcurrent)         // Semaphore to limit concurrent requests
+	results := make(chan Result[string], len(fakeProducts)) // Create a buffered channel to hold the results
 
 	httpService := NewHttpService(3, 2)
 
@@ -186,25 +176,48 @@ func main() {
 			results <- result
 		}(p)
 	}
+	wg.Wait()
+	close(results)
+	return results
+}
 
-	// Launch a goroutine for each URL
-	// for _, url := range urls {
-	// 	wg.Add(1)
-	// 	semaphore <- struct{}{} // Acquire semaphore
-	// 	go func(url string) {
-	// 		defer wg.Done()
-	// 		defer func() { <-semaphore }() // Release semaphore
-	// 		result := httpService.fetchData(url)
-	// 		mu.Lock()
-	// 		results <- result
-	// 		mu.Unlock()
-	// 	}(url)
-	// }
+func GetData() chan Result[string] {
+	maxConcurrent := 100
+	// mu := sync.Mutex{}
+	urls := []string{}
+	for i := 0; i < 1000; i++ {
+		urls = append(urls, "http://localhost:3000/healthz")
+		urls = append(urls, "http://localhost:8080/healthz")
+	}
 
-	go func() {
-		wg.Wait()
-		close(results)
-	}()
+	var wg sync.WaitGroup
+	semaphore := make(chan struct{}, maxConcurrent) // Semaphore to limit concurrent requests
+	results := make(chan Result[string], len(urls)) // Create a buffered channel to hold the results
+
+	httpService := NewHttpService(3, 2)
+
+	for _, url := range urls {
+		wg.Add(1)
+		semaphore <- struct{}{} // Acquire semaphore
+		go func(url string) {
+			defer wg.Done()
+			defer func() { <-semaphore }() // Release semaphore
+			result := httpService.fetchData(url)
+			// mu.Lock()
+			results <- result
+			// mu.Unlock()
+		}(url)
+	}
+	wg.Wait()
+	close(results)
+
+	return results
+}
+
+func main() {
+	start := time.Now()
+
+	results := create()
 
 	// Collect results
 	successCount := 0
@@ -212,14 +225,15 @@ func main() {
 
 	log.Println("Results:", len(results))
 	// Collect and print the results
-	// for result := range results {
-	// 	if result.Error != nil {
-	// 		log.Printf("Error fetching URL %s: %v\n", result.URL, result.Error)
-	// 	}
-	// 	// else {
-	// 	// 	fmt.Printf("Response from %s: %s\n", result.URL, result.Response)
-	// 	// }
-	// }
+	for result := range results {
+		if result.Error != nil {
+			log.Printf("Error fetching URL %s: %v\n", result.URL, result.Error)
+			failureCount += 1
+		} else {
+			// fmt.Printf("Response from %s: %s\n", result.URL, result.Response)
+			successCount += 1
+		}
+	}
 	elapsed := time.Since(start)
 	fmt.Printf("Total successful calls: %d\n", successCount)
 	fmt.Printf("Total failed calls: %d\n", failureCount)
