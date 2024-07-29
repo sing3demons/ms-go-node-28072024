@@ -84,7 +84,7 @@ func (h httpServiceConfig) fetchData(url string) Result[string] {
 	return response
 }
 
-func (h *httpServiceConfig) createProduct(payload any) Result[string] {
+func (h httpServiceConfig) createProduct(payload any) Result[string] {
 	url := "http://localhost:3000/products"
 
 	var response Result[string]
@@ -118,7 +118,7 @@ func (h *httpServiceConfig) createProduct(payload any) Result[string] {
 		return response
 	}
 
-	log.Println(string(body))
+	// log.Println(string(body))
 
 	response.Response = string(body)
 	return response
@@ -149,16 +149,16 @@ func main() {
 	start := time.Now()
 
 	maxConcurrent := 100
-	mu := sync.Mutex{}
+	// mu := sync.Mutex{}
 
 	urls := []string{}
-	for i := 0; i < 5000; i++ {
+	for i := 0; i < 1000; i++ {
 		urls = append(urls, "http://localhost:3000/healthz")
 		urls = append(urls, "http://localhost:8080/healthz")
 	}
 
 	fakeProducts := []Product{}
-	for i := 1; i <= 1000; i++ {
+	for i := 1; i <= 5000; i++ {
 		fakeProduct := Product{
 			Name:        fmt.Sprintf("Product %d", i),
 			Price:       math.Round((float64(i)+0.5)*100) / 100,
@@ -174,16 +174,16 @@ func main() {
 
 	httpService := NewHttpService(3, 2)
 
-	for _, p := range fakeProducts {
+	// wg.Add(len(fakeProducts))
+	for index, p := range fakeProducts {
 		wg.Add(1)
+		fmt.Println("Processing product", index)
 		semaphore <- struct{}{} // Acquire semaphore
 		go func(f Product) {
 			defer wg.Done()
 			defer func() { <-semaphore }() // Release semaphore
 			result := httpService.createProduct(f)
-			mu.Lock()
 			results <- result
-			mu.Unlock()
 		}(p)
 	}
 
@@ -201,19 +201,27 @@ func main() {
 	// 	}(url)
 	// }
 
-	// Wait for all goroutines to complete
-	wg.Wait()
-	close(results) // Close the results channel
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results
+	successCount := 0
+	failureCount := 0
 
 	log.Println("Results:", len(results))
 	// Collect and print the results
-	for result := range results {
-		if result.Error != nil {
-			log.Printf("Error fetching URL %s: %v\n", result.URL, result.Error)
-		} else {
-			fmt.Printf("Response from %s: %s\n", result.URL, result.Response)
-		}
-	}
+	// for result := range results {
+	// 	if result.Error != nil {
+	// 		log.Printf("Error fetching URL %s: %v\n", result.URL, result.Error)
+	// 	}
+	// 	// else {
+	// 	// 	fmt.Printf("Response from %s: %s\n", result.URL, result.Response)
+	// 	// }
+	// }
 	elapsed := time.Since(start)
+	fmt.Printf("Total successful calls: %d\n", successCount)
+	fmt.Printf("Total failed calls: %d\n", failureCount)
 	log.Printf("\nprogram took %s. \n", elapsed)
 }
