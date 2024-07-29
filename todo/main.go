@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"runtime"
 	"sync"
@@ -81,6 +84,46 @@ func (h httpServiceConfig) fetchData(url string) Result[string] {
 	return response
 }
 
+func (h *httpServiceConfig) createProduct(payload any) Result[string] {
+	url := "http://localhost:3000/products"
+
+	var response Result[string]
+	response.URL = url
+	httpClient := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	payloadData, _ := json.Marshal(payload)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(payloadData))
+	if err != nil {
+		log.Printf("error fetching URL %s: %v\n", url, err)
+		response.Error = err
+		return response
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		log.Printf("Error fetching URL %s: %v\n", url, err)
+		response.Error = err
+		return response
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Error reading response from URL %s: %v\n", url, err)
+		response.Error = err
+		return response
+	}
+
+	log.Println(string(body))
+
+	response.Response = string(body)
+	return response
+}
+
 func init() {
 	logrus.SetFormatter(&logrus.JSONFormatter{
 		FieldMap: logrus.FieldMap{
@@ -95,6 +138,13 @@ func init() {
 	runtime.GOMAXPROCS(cpuUsed)
 }
 
+type Product struct {
+	Name        string  `json:"name"`
+	Price       float64 `json:"price"`
+	Description string  `json:"description"`
+	Image       string  `json:"image"`
+}
+
 func main() {
 	start := time.Now()
 
@@ -107,25 +157,49 @@ func main() {
 		urls = append(urls, "http://localhost:8080/healthz")
 	}
 
+	fakeProducts := []Product{}
+	for i := 1; i <= 1000; i++ {
+		fakeProduct := Product{
+			Name:        fmt.Sprintf("Product %d", i),
+			Price:       math.Round((float64(i)+0.5)*100) / 100,
+			Description: "This is a fake product",
+			Image:       "https://via.placeholder.com/150",
+		}
+		fakeProducts = append(fakeProducts, fakeProduct)
+	}
+
 	var wg sync.WaitGroup
 	semaphore := make(chan struct{}, maxConcurrent) // Semaphore to limit concurrent requests
 	results := make(chan Result[string], len(urls)) // Create a buffered channel to hold the results
 
 	httpService := NewHttpService(3, 2)
 
-	// Launch a goroutine for each URL
-	for _, url := range urls {
+	for _, p := range fakeProducts {
 		wg.Add(1)
 		semaphore <- struct{}{} // Acquire semaphore
-		go func(url string) {
+		go func(f Product) {
 			defer wg.Done()
 			defer func() { <-semaphore }() // Release semaphore
-			result := httpService.fetchData(url)
+			result := httpService.createProduct(f)
 			mu.Lock()
 			results <- result
 			mu.Unlock()
-		}(url)
+		}(p)
 	}
+
+	// Launch a goroutine for each URL
+	// for _, url := range urls {
+	// 	wg.Add(1)
+	// 	semaphore <- struct{}{} // Acquire semaphore
+	// 	go func(url string) {
+	// 		defer wg.Done()
+	// 		defer func() { <-semaphore }() // Release semaphore
+	// 		result := httpService.fetchData(url)
+	// 		mu.Lock()
+	// 		results <- result
+	// 		mu.Unlock()
+	// 	}(url)
+	// }
 
 	// Wait for all goroutines to complete
 	wg.Wait()
