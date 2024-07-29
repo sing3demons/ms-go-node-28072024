@@ -5,7 +5,7 @@ import type { IRoute } from "../server/my-router";
 import path from 'path'
 import { HttpServiceServer } from "../httpService";
 import ProductService from "./product.service";
-import { CreateProductSchema, IProduct } from "./product.model";
+import { CreateProductSchema, IProduct, IQueryProductSchema } from "./product.model";
 
 
 
@@ -18,13 +18,16 @@ export class ProductHandler extends ASCommon {
         super(path.basename(__filename))
     }
 
-    private readonly getProducts = this.myRoute.get('/').handler(async ({ req, res, query }) => {
-        const detailLog = new DetailLog(req as Request, res, this.logger)
-        const summaryLog = new SummaryLog(req, res, this.logger)
+    private readonly getProducts = this.myRoute.get('/').query(IQueryProductSchema).handler(async ({ req, res, query }) => {
+        const detailLog = new DetailLog(req as unknown as Request, res, this.logger)
+        const summaryLog = new SummaryLog(req as unknown as Request, res, this.logger)
         detailLog.addDetail(this.scriptName, 'getProducts', 'Start')
 
-        const result = await this.productService.findAllProduct(query, detailLog)
-        const total = await this.productService.countProduct(query, detailLog)
+
+        const [result, total] = await Promise.all([
+            this.productService.findAllProduct(query, detailLog),
+            this.productService.countProduct(query, detailLog)
+        ])
         const data = result.map(({ id, name, price, description, image }) => {
             return {
                 id: id || '',
@@ -43,6 +46,8 @@ export class ProductHandler extends ASCommon {
             success: true,
             total,
             data,
+            page: +query.page,
+            pageSize: +query.pageSize
         }
     })
 

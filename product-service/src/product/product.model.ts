@@ -10,6 +10,16 @@ const IProductSchema = z.object({
     update_by: z.string()
 })
 
+export const IQueryProductSchema = z.object({
+    name: z.string().optional(),
+    page: z.string().optional().default("1"),
+    pageSize: z.string().optional().default("20"),
+    sort: z.string().optional(),
+    order: z.string().optional()
+})
+
+export type IQueryProduct = z.infer<typeof IQueryProductSchema>
+
 export const CreateProductSchema = IProductSchema.omit({ create_by: true, update_by: true, id: true })
 
 export type IProduct = z.infer<typeof IProductSchema>

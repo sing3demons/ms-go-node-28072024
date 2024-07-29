@@ -1,10 +1,11 @@
 import path from "path";
 import { ASCommon } from "../abstract/basecomponent";
 import { DetailLog } from "../server/logger";
-import { ICreateProduct, IProduct } from "./product.model";
+import { ICreateProduct, IProduct, IQueryProduct } from "./product.model";
 import { ProductModel } from "./product.schema";
 import { v7 as uuid } from 'uuid'
 import { HttpServiceServer } from "../httpService";
+import { FilterQuery } from "mongoose";
 
 export default class ProductService extends ASCommon {
     constructor(private readonly httpService: HttpServiceServer) {
@@ -26,11 +27,16 @@ export default class ProductService extends ASCommon {
         return result._id
     }
 
-    public countProduct = async (query: {}, detailLog: DetailLog) => {
+    public countProduct = async ({ name }: IQueryProduct, detailLog: DetailLog) => {
         const cmd = 'countProduct'
-        const filter = {
-            ...query,
+        let filter: FilterQuery<{}> = {
             delete_date: null,
+        }
+        if (name) {
+            filter = {
+                ...filter,
+                name: { $regex: name, $options: 'i' }
+            }
         }
         detailLog.addDetail(this.scriptName, cmd, JSON.stringify(filter))
 
@@ -39,15 +45,23 @@ export default class ProductService extends ASCommon {
         return result
     }
 
-    public findAllProduct = async (query: {}, detailLog: DetailLog) => {
+    public findAllProduct = async (query: IQueryProduct, detailLog: DetailLog) => {
         const cmd = 'findAllProduct'
-        const filter = {
-            ...query,
+        const { page, pageSize, name, sort = '_id', order = 'desc' } = query
+        let filter: FilterQuery<{}> = {
             delete_date: null,
         }
+        if (name) {
+            filter = {
+                ...filter,
+                name: { $regex: name, $options: 'i' }
+            }
+        }
         detailLog.addDetail(this.scriptName, cmd, JSON.stringify(filter))
+        const limit = Number(pageSize)
+        const skip = (Number(page) - 1) * limit
 
-        const result = await ProductModel.find<IProduct & { id: string }>(filter, {}, { limit: 10 }).lean().exec()
+        const result = await ProductModel.find<IProduct & { id: string }>(filter, {}, { limit, skip, sort: { [sort]: order } }).lean().exec()
         detailLog.addResponseBody(this.scriptName, cmd, result).end()
         return result
     }
