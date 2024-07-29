@@ -90,7 +90,7 @@ func (h httpServiceConfig) createProduct(payload any) Result[string] {
 	var response Result[string]
 	response.URL = url
 	httpClient := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: 50 * time.Second,
 	}
 
 	payloadData, _ := json.Marshal(payload)
@@ -148,7 +148,7 @@ type Product struct {
 func create() chan Result[string] {
 	maxConcurrent := 100
 	fakeProducts := []Product{}
-	for i := 1; i <= 5000; i++ {
+	for i := 1; i <= 50000; i++ {
 		fakeProduct := Product{
 			Name:        fmt.Sprintf("Product %d", i),
 			Price:       math.Round((float64(i)+0.5)*100) / 100,
@@ -176,8 +176,10 @@ func create() chan Result[string] {
 			results <- result
 		}(p)
 	}
-	wg.Wait()
-	close(results)
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
 	return results
 }
 
@@ -185,7 +187,7 @@ func GetData() chan Result[string] {
 	maxConcurrent := 100
 	// mu := sync.Mutex{}
 	urls := []string{}
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 5000; i++ {
 		urls = append(urls, "http://localhost:3000/healthz")
 		urls = append(urls, "http://localhost:8080/healthz")
 	}
