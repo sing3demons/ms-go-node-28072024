@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -72,6 +73,15 @@ func (m *myRouter) StartHTTP(port string) {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
+	log.Printf("Allocated memory: %v MB\n", memStats.Alloc/1024/1024)
+	log.Printf("Total allocated memory: %v MB\n", memStats.TotalAlloc/1024/1024)
+	log.Printf("System memory: %v MB\n", memStats.Sys/1024/1024)
+	log.Printf("Number of garbage collections: %v\n", memStats.NumGC)
+
+	log.Printf("Number of CPUs: %d\n", runtime.NumCPU())
 
 	host := m.getLocalIP().String()
 

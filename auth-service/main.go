@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"runtime"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -21,6 +22,15 @@ func init() {
 		if err := godotenv.Load(".env.dev"); err != nil {
 			panic(err)
 		}
+	}
+
+	if runtime.GOOS != "windows" {
+		temp := "/tmp/live"
+		_, err := os.Create(temp)
+		if err != nil {
+			os.Exit(1)
+		}
+		defer os.Remove(temp)
 	}
 }
 

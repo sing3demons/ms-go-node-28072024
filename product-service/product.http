@@ -1,0 +1,7 @@
+@url=http://localhost:3000
+
+GET {{url}}/healthz HTTP/1.1
+
+###
+GET {{url}}/products HTTP/1.1
+
